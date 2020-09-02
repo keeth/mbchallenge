@@ -46,37 +46,61 @@
 (defrecord SQLString [value])
 
 ; Clauses
-(defrecord SQLEquals [args])
+(defrecord SQLEqualTo [args])
+(defrecord SQLNotEqualTo [args])
+(defrecord SQLGreaterThan [args])
+(defrecord SQLLessThan [args])
 (defrecord Field [value])
 
 (declare parse-clause)
 
+(defn binary-op-sql [op args ctx]
+  (concat
+    (as-sql (first args) ctx)
+    [op]
+    (as-sql (last args) ctx)))
+
 (extend-protocol AsSQL
   SQLNull
-  (as-sql [this ctx] ["IS NULL"])
+  (as-sql [this ctx] ["NULL"])
   SQLNumber
   (as-sql [this ctx] [(-> this (.-value) str)])
   SQLString
   (as-sql [this ctx] [(str "'" (.-value this) "'")])
-  SQLEquals
+  SQLGreaterThan
+  (as-sql [this ctx]
+    (binary-op-sql ">" (.-args this) ctx))
+  SQLLessThan
+  (as-sql [this ctx]
+    (binary-op-sql ">" (.-args this) ctx))
+  SQLNotEqualTo
   (as-sql [this ctx]
     (let [args (.-args this)
           first-arg (first args)
           last-arg (last args)]
       (if (= 2 (count args))
         (if (= (class last-arg) SQLNull)
-          (mapcat #(as-sql % ctx) args)
-          (concat
-            (as-sql first-arg ctx)
-            ["="]
-            (as-sql first-arg ctx))
-          )
+          (concat (as-sql first-arg ctx) ["IS NOT NULL"])
+          (binary-op-sql "!=" args ctx))
+        (concat
+          (as-sql first-arg ctx)
+          ["NOT IN" "("]
+          (interpose "," (mapcat #(as-sql % ctx) (rest args)))
+          [")"]))))
+  SQLEqualTo
+  (as-sql [this ctx]
+    (let [args (.-args this)
+          first-arg (first args)
+          last-arg (last args)]
+      (if (= 2 (count args))
+        (if (= (class last-arg) SQLNull)
+          (concat (as-sql first-arg ctx) ["IS NULL"])
+          (binary-op-sql "=" args ctx))
         (concat
           (as-sql first-arg ctx)
           ["IN" "("]
           (interpose "," (mapcat #(as-sql % ctx) (rest args)))
-          [")"]
-          ))))
+          [")"]))))
   Field
   (as-sql [this ctx] [(-> this (.-value) (name))]))
 
@@ -85,9 +109,11 @@
 (defmethod get-literal Long [node ctx] (SQLNumber. node))
 
 (defmulti get-clause (fn [clause-id _ _] clause-id))
-(defmethod get-clause := [_ args ctx] (SQLEquals. args))
+(defmethod get-clause := [_ args ctx] (SQLEqualTo. args))
+(defmethod get-clause :< [_ args ctx] (SQLLessThan. args))
+(defmethod get-clause :> [_ args ctx] (SQLGreaterThan. args))
+(defmethod get-clause :!= [_ args ctx] (SQLNotEqualTo. args))
 (defmethod get-clause :field [_ args ctx]
-  (println "hi" args)
   (let [field-id (-> (first args) (.-value))]
     (Field. (-> ctx :fields (get field-id)))))
 
