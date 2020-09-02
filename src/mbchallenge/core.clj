@@ -24,15 +24,21 @@
 
 (defn maybe-with-where [ctx where sql]
   (if where
-    (concat sql ["WHERE"] (as-sql (parse-node where ctx) ctx))
+    (concat
+     sql
+     ["WHERE"]
+     (->
+      where
+      (parse-node ctx)
+      (as-sql ctx)))
     sql))
 
 (defn generate-sql [dialect fields {where :where limit :limit}]
   (let [sql-dialect (get-dialect dialect)
         ctx {:dialect sql-dialect :fields fields}]
     (->>
-      select-statement
-      (maybe-with-where ctx where)
-      (maybe-with-limit ctx limit)
-      (string/join " "))))
+     select-statement
+     (maybe-with-where ctx where)
+     (maybe-with-limit ctx limit)
+     (string/join " "))))
 

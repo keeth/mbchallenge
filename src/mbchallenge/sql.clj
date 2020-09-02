@@ -12,9 +12,9 @@
                                     :or {parens? false}}]
   (let [nested-ctx (assoc ctx :nested? true)
         clause-sql (concat
-                     (as-sql (first args) nested-ctx)
-                     [op]
-                     (as-sql (last args) nested-ctx))]
+                    (as-sql (first args) nested-ctx)
+                    [op]
+                    (as-sql (last args) nested-ctx))]
     (if (and parens? (:nested? ctx))
       (concat ["("] clause-sql [")"])
       clause-sql)))
@@ -27,10 +27,10 @@
         (concat (as-sql first-arg ctx) [null-op])
         (binary-op-sql binary-op args ctx))
       (concat
-        (as-sql first-arg ctx)
-        [n-ary-op "("]
-        (interpose "," (mapcat #(as-sql % ctx) (rest args)))
-        [")"]))))
+       (as-sql first-arg ctx)
+       [n-ary-op "("]
+       (interpose "," (mapcat #(as-sql % ctx) (rest args)))
+       [")"]))))
 
 (def is-null "IS NULL")
 (def is-not-null "IS NOT NULL")
