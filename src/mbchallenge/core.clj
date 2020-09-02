@@ -50,15 +50,22 @@
 (defrecord SQLNotEqualTo [args])
 (defrecord SQLGreaterThan [args])
 (defrecord SQLLessThan [args])
+(defrecord SQLAnd [args])
+(defrecord SQLOr [args])
 (defrecord Field [value])
 
 (declare parse-clause)
 
-(defn binary-op-sql [op args ctx]
-  (concat
-    (as-sql (first args) ctx)
-    [op]
-    (as-sql (last args) ctx)))
+(defn binary-op-sql [op args ctx & {:keys [parens?]
+                                    :or {parens? false}}]
+  (let [nested-ctx (assoc ctx :nested? true)
+        clause-sql (concat
+                     (as-sql (first args) nested-ctx)
+                     [op]
+                     (as-sql (last args) nested-ctx))]
+    (if (and parens? (:nested? ctx))
+      (concat ["("] clause-sql [")"])
+      clause-sql)))
 
 (extend-protocol AsSQL
   SQLNull
@@ -72,7 +79,13 @@
     (binary-op-sql ">" (.-args this) ctx))
   SQLLessThan
   (as-sql [this ctx]
-    (binary-op-sql ">" (.-args this) ctx))
+    (binary-op-sql "<" (.-args this) ctx))
+  SQLAnd
+  (as-sql [this ctx]
+    (binary-op-sql "AND" (.-args this) ctx :parens? true))
+  SQLOr
+  (as-sql [this ctx]
+    (binary-op-sql "OR" (.-args this) ctx :parens? true))
   SQLNotEqualTo
   (as-sql [this ctx]
     (let [args (.-args this)
@@ -81,7 +94,7 @@
       (if (= 2 (count args))
         (if (= (class last-arg) SQLNull)
           (concat (as-sql first-arg ctx) ["IS NOT NULL"])
-          (binary-op-sql "!=" args ctx))
+          (binary-op-sql "<>" args ctx))
         (concat
           (as-sql first-arg ctx)
           ["NOT IN" "("]
@@ -107,12 +120,15 @@
 (defmulti get-literal (fn [node _] (class node)))
 (defmethod get-literal nil [_ ctx] (SQLNull.))
 (defmethod get-literal Long [node ctx] (SQLNumber. node))
+(defmethod get-literal String [node ctx] (SQLString. node))
 
-(defmulti get-clause (fn [clause-id _ _] clause-id))
+(defmulti get-clause (fn [clause-id _ _] (keyword clause-id)))
 (defmethod get-clause := [_ args ctx] (SQLEqualTo. args))
 (defmethod get-clause :< [_ args ctx] (SQLLessThan. args))
 (defmethod get-clause :> [_ args ctx] (SQLGreaterThan. args))
 (defmethod get-clause :!= [_ args ctx] (SQLNotEqualTo. args))
+(defmethod get-clause :and [_ args ctx] (SQLAnd. args))
+(defmethod get-clause :or [_ args ctx] (SQLOr. args))
 (defmethod get-clause :field [_ args ctx]
   (let [field-id (-> (first args) (.-value))]
     (Field. (-> ctx :fields (get field-id)))))
