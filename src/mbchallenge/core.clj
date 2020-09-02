@@ -38,38 +38,58 @@
 (defmethod get-dialect :sqlserver [_] (SQLServerDialect.))
 
 (defprotocol AsSQL
-  (as-sql [this]))
+  (as-sql [this ctx]))
 
 ; Literals
-(defrecord SQLNull [ctx])
-(defrecord SQLNumber [ctx value])
+(defrecord SQLNull [])
+(defrecord SQLNumber [value])
+(defrecord SQLString [value])
 
 ; Clauses
-(defrecord SQLEquals [ctx args])
-(defrecord Field [ctx args])
+(defrecord SQLEquals [args])
+(defrecord Field [value])
 
 (declare parse-clause)
 
 (extend-protocol AsSQL
   SQLNull
-  (as-sql [this] ["IS NULL"])
+  (as-sql [this ctx] ["IS NULL"])
   SQLNumber
-  (as-sql [this] [(-> (.-value this) str)])
+  (as-sql [this ctx] [(-> this (.-value) str)])
+  SQLString
+  (as-sql [this ctx] [(str "'" (.-value this) "'")])
   SQLEquals
-  (as-sql [this] (concat
-                   (-> (.-args this) (first) (as-sql))
-                   ["="]
-                   (-> (.-args this) (last) (as-sql))))
+  (as-sql [this ctx]
+    (let [args (.-args this)
+          first-arg (first args)
+          last-arg (last args)]
+      (if (= 2 (count args))
+        (if (= (class last-arg) SQLNull)
+          (mapcat #(as-sql % ctx) args)
+          (concat
+            (as-sql first-arg ctx)
+            ["="]
+            (as-sql first-arg ctx))
+          )
+        (concat
+          (as-sql first-arg ctx)
+          ["IN" "("]
+          (interpose "," (mapcat #(as-sql % ctx) (rest args)))
+          [")"]
+          ))))
   Field
-  (as-sql [this] ["foo"]))
+  (as-sql [this ctx] [(-> this (.-value) (name))]))
 
 (defmulti get-literal (fn [node _] (class node)))
-(defmethod get-literal nil [_ ctx] (SQLNull. ctx))
-(defmethod get-literal Long [node ctx] (SQLNumber. ctx node))
+(defmethod get-literal nil [_ ctx] (SQLNull.))
+(defmethod get-literal Long [node ctx] (SQLNumber. node))
 
 (defmulti get-clause (fn [clause-id _ _] clause-id))
-(defmethod get-clause := [_ args ctx] (SQLEquals. ctx args))
-(defmethod get-clause :field [_ args ctx] (Field. ctx args))
+(defmethod get-clause := [_ args ctx] (SQLEquals. args))
+(defmethod get-clause :field [_ args ctx]
+  (println "hi" args)
+  (let [field-id (-> (first args) (.-value))]
+    (Field. (-> ctx :fields (get field-id)))))
 
 (defn maybe-with-limit [{dialect :dialect} limit sql]
   (if limit
@@ -83,17 +103,13 @@
   (let [clause-id (first node)
         clause-args (map #(parse-node % ctx) (rest node))
         clause (get-clause clause-id clause-args ctx)]
-    (when-not clause
-      (throw (IllegalArgumentException. (str "Unknown clause " node))))
     clause))
 (defmethod parse-node false [node ctx]
-  (if-let [literal (get-literal node ctx)]
-    literal
-    (throw (IllegalArgumentException. (str "Unknown literal " node)))))
+  (get-literal node ctx))
 
 (defn maybe-with-where [ctx where sql]
   (if where
-    (concat sql ["WHERE"] (as-sql (parse-node where ctx)))
+    (concat sql ["WHERE"] (as-sql (parse-node where ctx) ctx))
     sql))
 
 (defn generate-sql [dialect fields {where :where limit :limit}]
