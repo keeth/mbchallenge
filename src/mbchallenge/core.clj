@@ -1,14 +1,14 @@
 (ns mbchallenge.core
   (:require [clojure.string :as string]
-            [mbchallenge.dialect :refer [get-dialect with-limit]]
+            [mbchallenge.dialect :refer [get-dialect add-limit]]
             [mbchallenge.sql :refer [as-sql]]
             [mbchallenge.types :refer [get-literal get-clause]]))
 
 (def select-statement ["SELECT" "*" "FROM" "data"])
 
-(defn maybe-with-limit [{dialect :dialect} limit sql]
+(defn maybe-add-limit [{dialect :dialect} limit sql]
   (if limit
-    (with-limit dialect limit sql)
+    (add-limit dialect limit sql)
     sql))
 
 (def is-clause? sequential?)
@@ -22,7 +22,7 @@
 (defmethod parse-node false [node ctx]
   (get-literal node ctx))
 
-(defn maybe-with-where [ctx where sql]
+(defn maybe-add-where [ctx where sql]
   (if where
     (concat
      sql
@@ -38,7 +38,7 @@
         ctx {:dialect sql-dialect :fields fields}]
     (->>
      select-statement
-     (maybe-with-where ctx where)
-     (maybe-with-limit ctx limit)
+     (maybe-add-where ctx where)
+     (maybe-add-limit ctx limit)
      (string/join " "))))
 
