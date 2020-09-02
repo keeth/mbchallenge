@@ -34,8 +34,7 @@
     sql))
 
 (defn generate-sql [dialect fields {where :where limit :limit}]
-  (let [sql-dialect (get-dialect dialect)
-        ctx {:dialect sql-dialect :fields fields}]
+  (let [ctx {:dialect (get-dialect dialect) :fields fields}]
     (->>
      select-statement
      (maybe-add-where ctx where)
