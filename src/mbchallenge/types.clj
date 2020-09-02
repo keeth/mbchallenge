@@ -12,6 +12,8 @@
 (defrecord SQLLessThan [args])
 (defrecord SQLAnd [args])
 (defrecord SQLOr [args])
+(defrecord SQLIsEmpty [value])
+(defrecord SQLNotEmpty [value])
 (defrecord Field [value])
 
 (defmulti get-literal (fn [node _] (class node)))
@@ -26,6 +28,8 @@
 (defmethod get-clause :!= [_ args ctx] (SQLNotEqualTo. args))
 (defmethod get-clause :and [_ args ctx] (SQLAnd. args))
 (defmethod get-clause :or [_ args ctx] (SQLOr. args))
+(defmethod get-clause :is-empty [_ args ctx] (SQLIsEmpty. (first args)))
+(defmethod get-clause :not-empty [_ args ctx] (SQLNotEmpty. (first args)))
 (defmethod get-clause :field [_ args ctx]
   (let [field-id (-> (first args) (.-value))]
     (Field. (-> ctx :fields (get field-id)))))

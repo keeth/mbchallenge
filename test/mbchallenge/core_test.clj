@@ -46,3 +46,9 @@
            (generate-sql :postgres fields {:limit 20})))
     (is (= "SELECT TOP 20 * FROM data"
            (generate-sql :sqlserver fields {:limit 20}))))
+
+(testing "is-empty and not-empty"
+  (is (= "SELECT * FROM data WHERE \"age\" IS NULL"
+         (generate-sql :postgres fields {:where [:is-empty [:field 4]]})) )
+  (is (= "SELECT * FROM data WHERE \"age\" IS NOT NULL"
+         (generate-sql :postgres fields {:where [:not-empty [:field 4]]}))))

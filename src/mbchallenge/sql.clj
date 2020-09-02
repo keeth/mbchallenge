@@ -1,7 +1,7 @@
 (ns mbchallenge.sql
   (:require [mbchallenge.types]
             [mbchallenge.dialect :refer [quote-identifier]])
-  (:import (mbchallenge.types SQLNumber SQLNull SQLString SQLGreaterThan SQLLessThan SQLAnd SQLOr SQLNotEqualTo SQLEqualTo Field)))
+  (:import (mbchallenge.types SQLNumber SQLNull SQLString SQLGreaterThan SQLLessThan SQLAnd SQLOr SQLNotEqualTo SQLEqualTo Field SQLIsEmpty SQLNotEmpty)))
 
 (defprotocol AsSQL
   (as-sql [this ctx]))
@@ -32,6 +32,9 @@
         (interpose "," (mapcat #(as-sql % ctx) (rest args)))
         [")"]))))
 
+(def is-null "IS NULL")
+(def is-not-null "IS NOT NULL")
+
 (extend-protocol AsSQL
   SQLNull
   (as-sql [this ctx] ["NULL"])
@@ -53,9 +56,13 @@
     (binary-op-sql "OR" (.-args this) ctx :parens? true))
   SQLNotEqualTo
   (as-sql [this ctx]
-    (equality-op-sql "<>" "IS NOT NULL" "NOT IN" (.-args this) ctx))
+    (equality-op-sql "<>" is-not-null "NOT IN" (.-args this) ctx))
   SQLEqualTo
   (as-sql [this ctx]
-    (equality-op-sql "=" "IS NULL" "IN" (.-args this) ctx))
+    (equality-op-sql "=" is-null "IN" (.-args this) ctx))
+  SQLIsEmpty
+  (as-sql [this ctx] (conj (as-sql (.-value this) ctx) is-null))
+  SQLNotEmpty
+  (as-sql [this ctx] (conj (as-sql (.-value this) ctx) is-not-null))
   Field
   (as-sql [this ctx] [(->> this .-value name (quote-identifier (:dialect ctx)))]))
