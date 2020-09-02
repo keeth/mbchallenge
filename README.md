@@ -1,3 +1,3 @@
 # mbchallenge
 
-Metabase challenge solution
+MB challenge solution
