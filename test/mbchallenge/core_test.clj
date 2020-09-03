@@ -9,7 +9,11 @@
 
 (def macros {"is_joe" [:= [:field 2] "joe"]
              "is_old" [">" [:field 4] 18]
-             "is_old_joe" [:and [:macro "is_old"] [:macro "is_joe"]]})
+             "is_old_joe" [:and [:macro "is_old"] [:macro "is_joe"]]
+             })
+
+(def circular-macros {"is_good" [:and [:macro "is_decent"] [:> [:field 4] 18]]
+                      "is_decent" [:and [:macro "is_good"] [:< [:field 5] 5]]})
 
 (deftest generate-sql-tests
   (testing "limit"
@@ -63,5 +67,7 @@
     (is (= "SELECT * FROM data WHERE \"id\" < 5 AND \"name\" = 'joe'"
            (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_joe"]]} :macros macros))))
     (is (= "SELECT * FROM data WHERE \"id\" < 5 AND ( \"age\" > 18 AND \"name\" = 'joe' )"
-           (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_old_joe"]]} :macros macros))))
+           (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_old_joe"]]} :macros macros)))
+    (is (thrown? IllegalArgumentException
+                 (generate-sql :postgres fields {} :macros circular-macros))))
 

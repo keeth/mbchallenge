@@ -2,7 +2,8 @@
   (:require [clojure.string :as string]
             [mbchallenge.dialect :refer [get-dialect add-limit]]
             [mbchallenge.sql :refer [as-sql]]
-            [mbchallenge.types :refer [get-literal get-clause]]))
+            [mbchallenge.types :refer [get-literal get-clause]]
+            [mbchallenge.util :refer [node-type circular-macro-check!]]))
 
 (def select-statement ["SELECT" "*" "FROM" "data"])
 
@@ -10,15 +11,6 @@
   (if limit
     (add-limit dialect limit sql)
     sql))
-
-(def is-clause? sequential?)
-(defn is-macro? [clause] (-> clause first (= :macro)))
-(defn node-type [node]
-  (if (is-clause? node)
-    (if (is-macro? node)
-      :macro
-      :clause)
-    :literal))
 
 (defmulti parse-node (fn [node ctx] (node-type node)))
 (defmethod parse-node :clause [node ctx]
@@ -46,6 +38,7 @@
 
 (defn generate-sql [dialect fields {where :where limit :limit} & {:keys [macros] :or {macros {}}}]
   (let [ctx {:dialect (get-dialect dialect) :fields fields :macros macros}]
+    (circular-macro-check! macros)
     (->>
      select-statement
      (maybe-add-where ctx where)
