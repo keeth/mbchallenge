@@ -64,9 +64,9 @@
 
   (testing "macros"
     (is (= "SELECT * FROM data WHERE \"id\" < 5 AND \"name\" = 'joe'"
-           (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_joe"]]} :macros macros))))
-  (is (= "SELECT * FROM data WHERE \"id\" < 5 AND ( \"age\" > 18 AND \"name\" = 'joe' )"
-         (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_old_joe"]]} :macros macros)))
-  (is (thrown? IllegalArgumentException
-               (generate-sql :postgres fields {} :macros circular-macros))))
+           (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_joe"]]} :macros macros)))
+    (is (= "SELECT * FROM data WHERE \"id\" < 5 AND ( \"age\" > 18 AND \"name\" = 'joe' )"
+           (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_old_joe"]]} :macros macros)))
+    (is (thrown? IllegalArgumentException
+                 (generate-sql :postgres fields {} :macros circular-macros)))))
 
