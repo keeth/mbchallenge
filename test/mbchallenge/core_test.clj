@@ -7,6 +7,10 @@
              3 :date_joined
              4 :age})
 
+(def macros {"is_joe" [:= [:field 2] "joe"]
+             "is_old" [">" [:field 4] 18]
+             "is_old_joe" [:and [:macro "is_old"] [:macro "is_joe"]]})
+
 (deftest generate-sql-tests
   (testing "limit"
     (is (=
@@ -53,6 +57,11 @@
     (is (= "SELECT * FROM data WHERE \"age\" IS NULL"
            (generate-sql :postgres fields {:where [:is-empty [:field 4]]})))
     (is (= "SELECT * FROM data WHERE \"age\" IS NOT NULL"
-           (generate-sql :postgres fields {:where [:not-empty [:field 4]]})))))
+           (generate-sql :postgres fields {:where [:not-empty [:field 4]]}))))
 
+  (testing "macros"
+    (is (= "SELECT * FROM data WHERE \"id\" < 5 AND \"name\" = 'joe'"
+           (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_joe"]]} :macros macros))))
+    (is (= "SELECT * FROM data WHERE \"id\" < 5 AND ( \"age\" > 18 AND \"name\" = 'joe' )"
+           (generate-sql :postgres fields {:where [:and [:< [:field 1] 5] [:macro "is_old_joe"]]} :macros macros))))
 

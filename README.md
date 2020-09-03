@@ -12,3 +12,5 @@ Keith's challenge solution
 Dialects implement quoting and LIMIT syntax (could be expanded to more areas of syntax in future if desired).
 
 Dialects, literals and clauses are all extensible via protocols and multimethods.
+
+Support for nested macros.
